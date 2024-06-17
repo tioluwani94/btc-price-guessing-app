@@ -1,4 +1,4 @@
-async function getBTCPrice() {
+export async function getBTCPrice() {
   try {
     const res = await fetch(
       "https://api.coindesk.com/v1/bpi/currentprice/BTC.json"

@@ -1,47 +1,140 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getBTCPrice } from "./api-client";
 
-export const useGameLogic = () => {
-  const [score, setScore] = useState(0);
-  const [message, setMessage] = useState("");
-  const [btcPrice, setBtcPrice] = useState(0);
-  const [guess, setGuess] = useState<string | null>(null);
+const useCountDown = () => {
+  const [countDown, setCountDown] = useState(60);
+  const [startCountDown, setStartCountDown] = useState(false);
 
-  async function getBTCPrice() {
-    try {
-      const res = await fetch(
-        "https://api.coindesk.com/v1/bpi/currentprice/BTC.json"
-      );
+  useEffect(() => {
+    if (startCountDown) {
+      const interval = setInterval(() => {
+        if (countDown !== 0) {
+          setCountDown(countDown - 1);
+        } else {
+          setCountDown(60);
+        }
+      }, 1000);
 
-      if (!res.ok) {
-        // This will activate the closest `error.js` Error Boundary
-        throw new Error("Failed to fetch data");
+      return () => clearInterval(interval);
+    }
+  }, [countDown, startCountDown]);
+
+  return { countDown, startCountDown, setCountDown, setStartCountDown };
+};
+
+const useLocalStorageState = (
+  key: string,
+  defaultValue: any = "",
+  { serialize = JSON.stringify, deserialize = JSON.parse } = {}
+) => {
+  const [state, setState] = useState(() => {
+    const localStorageValue = window.localStorage.getItem(key);
+
+    if (localStorageValue) {
+      try {
+        return deserialize(localStorageValue);
+      } catch (error) {
+        window.localStorage.removeItem(key);
       }
+    }
+    return typeof defaultValue === "function" ? defaultValue() : defaultValue;
+  });
 
-      const data = await res.json();
+  const prevKeyRef = useRef(key);
 
-      const price = data.bpi?.["USD"]?.rate_float;
+  useEffect(() => {
+    const prevKey = prevKeyRef.current;
+    if (prevKey !== key) {
+      window.localStorage.removeItem(prevKey);
+    }
+    prevKeyRef.current = key;
+    window.localStorage.setItem(key, serialize(state));
+  }, [key, state, serialize]);
 
-      setBtcPrice(price);
-    } catch (error) {
-      return error;
+  return [state, setState];
+};
+
+export const useGetLatestBTCPrice = () => {
+  const [btcPrice, setBtcPrice] = useState(0);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function fetchLatestBTCPrice() {
+    try {
+      const res = await getBTCPrice();
+
+      setBtcPrice(res);
+    } catch (error: any) {
+      setErrorMessage(error?.message ?? error);
     }
   }
 
   useEffect(() => {
-    getBTCPrice();
-    const interval = setInterval(getBTCPrice, 10000); // Update BTC price every 10 seconds
+    fetchLatestBTCPrice();
+    const interval = setInterval(fetchLatestBTCPrice, 10000); // Update BTC price every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
-  const handleGuess = async (direction: "up" | "down") => {
-    if (guess) {
-      setMessage("You have an ongoing guess. Please wait.");
-      return;
-    }
+  return {
+    btcPrice,
+    errorMessage,
+  };
+};
 
-    setGuess(direction);
-    setMessage(`You guessed ${direction}. Waiting for resolution...`);
+export const useGameLogic = (latestBTCPrice: number) => {
+  const [message, setMessage] = useState("");
+  const [score, setScore] = useLocalStorageState("btc-game", 0);
+
+  const [userGuess, setUserGuess] = useState<string | null>(null);
+
+  const { countDown, startCountDown, setCountDown, setStartCountDown } =
+    useCountDown();
+
+  const btcPriceOnUserGuess = useRef<number | undefined>();
+
+  const handleGuess = (direction: "up" | "down") => {
+    btcPriceOnUserGuess.current = latestBTCPrice;
+
+    setMessage("");
+    setUserGuess(direction);
+    setStartCountDown(true);
   };
 
-  return { score, message, btcPrice, guess, handleGuess };
+  const handleReset = useCallback(() => {
+    setCountDown(60);
+    setStartCountDown(false);
+    setUserGuess(null);
+  }, [setCountDown, setStartCountDown]);
+
+  const handleUpdateScore = useCallback(() => {
+    const check =
+      btcPriceOnUserGuess.current &&
+      ((userGuess === "up" && latestBTCPrice > btcPriceOnUserGuess.current) ||
+        (userGuess === "down" && latestBTCPrice < btcPriceOnUserGuess.current));
+
+    if (check) {
+      setScore(score + 1);
+      setMessage("Hurray! you guessed right 🎉");
+    } else {
+      setScore(score - 1);
+      setMessage("Sorry you guessed wrong 😢");
+    }
+
+    handleReset();
+  }, [handleReset, latestBTCPrice, score, setScore, userGuess]);
+
+  useEffect(() => {
+    if (countDown === 0) {
+      handleUpdateScore();
+    }
+  }, [countDown, handleUpdateScore]);
+
+  return {
+    score,
+    message,
+    userGuess,
+    countDown,
+    startCountDown,
+    btcPriceOnUserGuess,
+    handleGuess,
+  };
 };
