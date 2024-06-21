@@ -28,16 +28,18 @@ const useLocalStorageState = (
   { serialize = JSON.stringify, deserialize = JSON.parse } = {}
 ) => {
   const [state, setState] = useState(() => {
-    const localStorageValue = window.localStorage.getItem(key);
+    if (typeof window !== "undefined") {
+      const localStorageValue = window.localStorage.getItem(key) ?? "0";
 
-    if (localStorageValue) {
-      try {
-        return deserialize(localStorageValue);
-      } catch (error) {
-        window.localStorage.removeItem(key);
+      if (localStorageValue) {
+        try {
+          return deserialize(localStorageValue);
+        } catch (error) {
+          window.localStorage.removeItem(key);
+        }
       }
+      return typeof defaultValue === "function" ? defaultValue() : defaultValue;
     }
-    return typeof defaultValue === "function" ? defaultValue() : defaultValue;
   });
 
   const prevKeyRef = useRef(key);

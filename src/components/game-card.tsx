@@ -20,7 +20,7 @@ export default function GameCard() {
         <p className="font-bold">
           Your Score:{" "}
           <span className="font-normal" data-testid="score">
-            {score}
+            {score ?? 0}
           </span>
         </p>
         <hr />
