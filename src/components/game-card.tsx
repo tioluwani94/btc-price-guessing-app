@@ -1,12 +1,12 @@
 "use client";
 
-import { useGameLogic, useGetLatestBTCPrice } from "@/lib/hook";
+import { useGameHook, useGetLatestBTCPrice } from "../lib/hook";
 import Button from "./button";
 
 export default function GameCard() {
   const { btcPrice } = useGetLatestBTCPrice();
   const { score, userGuess, countDown, startCountDown, message, handleGuess } =
-    useGameLogic(btcPrice);
+    useGameHook(btcPrice);
 
   return (
     <div className="w-full rounded-md bg-white p-4 shadow-md">
@@ -18,7 +18,10 @@ export default function GameCard() {
           </span>
         </p>
         <p className="font-bold">
-          Your Score: <span className="font-normal">{score}</span>
+          Your Score:{" "}
+          <span className="font-normal" data-testid="score">
+            {score}
+          </span>
         </p>
         <hr />
         <p>

@@ -80,7 +80,7 @@ export const useGetLatestBTCPrice = () => {
   };
 };
 
-export const useGameLogic = (latestBTCPrice: number) => {
+export const useGameHook = (latestBTCPrice: number) => {
   const [message, setMessage] = useState("");
   const [score, setScore] = useLocalStorageState("btc-game", 0);
 

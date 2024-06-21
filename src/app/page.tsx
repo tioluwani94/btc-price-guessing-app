@@ -1,4 +1,4 @@
-import GameCard from "@/components/game-card";
+import GameCard from "../components/game-card";
 import Image from "next/image";
 
 export default function Home() {
